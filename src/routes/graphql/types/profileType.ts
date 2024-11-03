@@ -17,10 +17,8 @@ export const Profile = new GraphQLObjectType({
     yearOfBirth: { type: new GraphQLNonNull(GraphQLInt) },
     memberType: {
       type: new GraphQLNonNull(MemberType),
-      resolve: async (parent, _, context) => {
-        return context.prisma.memberType.findUnique({
-          where: { id: parent.memberTypeId },
-        });
+      resolve: async (parent, _, { loaders }) => {
+        return loaders.memberTypeLoader.load(parent.memberTypeId);
       },
     },
   },

@@ -3,9 +3,29 @@ import { createGqlResponseSchema, gqlResponseSchema } from './schemas.js';
 import { graphql, parse, validate } from 'graphql';
 import { createSchema } from './types/schemaType.js';
 import depthLimit from 'graphql-depth-limit';
+import {
+  createMemberTypeLoader,
+  createPostLoader,
+  createProfileLoader,
+  createSubscribedToUserLoader,
+  createUserSubscribedToLoader,
+} from './loaders.js';
 
 const plugin: FastifyPluginAsyncTypebox = async (fastify) => {
   const { prisma } = fastify;
+
+  const context = (prisma) => {
+    return {
+      prisma,
+      loaders: {
+        memberTypeLoader: createMemberTypeLoader(prisma),
+        profileLoader: createProfileLoader(prisma),
+        postLoader: createPostLoader(prisma),
+        userSubscribedToLoader: createUserSubscribedToLoader(prisma),
+        subscribedToUserLoader: createSubscribedToUserLoader(prisma),
+      },
+    };
+  };
 
   fastify.route({
     url: '/',
@@ -29,7 +49,7 @@ const plugin: FastifyPluginAsyncTypebox = async (fastify) => {
         return graphql({
           schema,
           source: req.body.query,
-          contextValue: { prisma },
+          contextValue: context(prisma),
           variableValues: req.body.variables,
         });
       } catch (error) {

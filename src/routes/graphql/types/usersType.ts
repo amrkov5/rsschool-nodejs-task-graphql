@@ -18,51 +18,45 @@ export const User = new GraphQLObjectType({
     balance: { type: new GraphQLNonNull(GraphQLFloat) },
     profile: {
       type: Profile,
-      resolve: async (parent, _, context) => {
-        return context.prisma.profile.findUnique({
-          where: { userId: parent.id },
-        });
+      resolve: async (parent, _, { loaders }) => {
+        return loaders.profileLoader.load(parent.id);
       },
     },
     posts: {
       type: new GraphQLNonNull(Posts),
-      resolve: async (parent, _, context) => {
+      resolve: async (parent, _, { loaders }) => {
         if (parent.id) {
-          return context.prisma.post.findMany({
-            where: { authorId: parent.id },
-          });
+          return loaders.postLoader.load(parent.id);
         }
         return null;
       },
     },
     userSubscribedTo: {
       type: new GraphQLNonNull(new GraphQLList(User)),
-      resolve: async (parent, _, context) => {
-        return context.prisma.user.findMany({
-          where: {
-            subscribedToUser: {
-              some: {
-                subscriberId: parent.id,
-              },
-            },
-          },
-        });
+      resolve: async (parent, _, { loaders }) => {
+        return loaders.userSubscribedToLoader.load(parent.id);
       },
     },
     subscribedToUser: {
       type: new GraphQLNonNull(new GraphQLList(User)),
-      resolve: async (parent, _, context) => {
-        return context.prisma.user.findMany({
-          where: {
-            userSubscribedTo: {
-              some: {
-                authorId: parent.id,
-              },
-            },
-          },
-        });
+      resolve: async (parent, _, { loaders }) => {
+        return loaders.subscribedToUserLoader.load(parent.id);
       },
     },
+    // subscribedToUser: {
+    //   type: new GraphQLNonNull(new GraphQLList(User)),
+    //   resolve: async (parent, _, context) => {
+    //     return context.prisma.user.findMany({
+    //       where: {
+    //         userSubscribedTo: {
+    //           some: {
+    //             authorId: parent.id,
+    //           },
+    //         },
+    //       },
+    //     });
+    //   },
+    // },
   }),
 });
 
