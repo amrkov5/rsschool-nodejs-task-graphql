@@ -1,25 +1,8 @@
 import { FastifyPluginAsyncTypebox } from '@fastify/type-provider-typebox';
 import { createGqlResponseSchema, gqlResponseSchema } from './schemas.js';
-import {
-  graphql,
-  GraphQLInputType,
-  GraphQLNonNull,
-  GraphQLObjectType,
-  GraphQLScalarType,
-  GraphQLSchema,
-  GraphQLString,
-} from 'graphql';
-import { MemberType, MemberTypeListType, MemberTypeId } from './types/memberType.js';
-import { User, UserList, CreateUserInput, ChangeUserInput } from './types/usersType.js';
-import { UUIDType } from './types/uuid.js';
-import { ChangePostInput, CreatePostInput, Post, Posts } from './types/postsType.js';
-import {
-  ChangeProfileInput,
-  CreateProfileInput,
-  Profile,
-  ProfileList,
-} from './types/profileType.js';
+import { graphql, parse, validate } from 'graphql';
 import { createSchema } from './types/schemaType.js';
+import depthLimit from 'graphql-depth-limit';
 
 const plugin: FastifyPluginAsyncTypebox = async (fastify) => {
   const { prisma } = fastify;
@@ -33,13 +16,25 @@ const plugin: FastifyPluginAsyncTypebox = async (fastify) => {
         200: gqlResponseSchema,
       },
     },
-    async handler(req) {
-      return graphql({
-        schema: createSchema(prisma),
-        source: req.body.query,
-        contextValue: { prisma },
-        variableValues: req.body.variables,
-      });
+    async handler(req, reply) {
+      try {
+        const schema = createSchema(prisma);
+
+        const ast = parse(req.body.query);
+
+        const errors = validate(schema, ast, [depthLimit(5)]);
+        if (errors.length > 0) {
+          throw new Error('Your request exceeds maximum operation depth of 5');
+        }
+        return graphql({
+          schema,
+          source: req.body.query,
+          contextValue: { prisma },
+          variableValues: req.body.variables,
+        });
+      } catch (error) {
+        reply.send({ errors: [{ message: (error as Error).message }] });
+      }
     },
   });
 };
