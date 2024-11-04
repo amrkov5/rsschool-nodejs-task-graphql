@@ -43,20 +43,6 @@ export const User = new GraphQLObjectType({
         return loaders.subscribedToUserLoader.load(parent.id);
       },
     },
-    // subscribedToUser: {
-    //   type: new GraphQLNonNull(new GraphQLList(User)),
-    //   resolve: async (parent, _, context) => {
-    //     return context.prisma.user.findMany({
-    //       where: {
-    //         userSubscribedTo: {
-    //           some: {
-    //             authorId: parent.id,
-    //           },
-    //         },
-    //       },
-    //     });
-    //   },
-    // },
   }),
 });
 

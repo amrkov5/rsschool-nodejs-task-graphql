@@ -9,13 +9,14 @@ import {
   Profile,
   ProfileList,
 } from './profileType.js';
+import { parseResolveInfo } from 'graphql-parse-resolve-info';
 
 const createRootQuery = (prisma) => {
   const RootQuery = new GraphQLObjectType({
     name: 'RootQuery',
     fields: {
       memberTypes: {
-        type: MemberTypeListType,
+        type: new GraphQLNonNull(MemberTypeListType),
         resolve: async () => prisma.memberType.findMany(),
       },
       memberType: {
@@ -29,8 +30,45 @@ const createRootQuery = (prisma) => {
           }),
       },
       users: {
-        type: UserList,
-        resolve: async () => prisma.user.findMany(),
+        type: new GraphQLNonNull(UserList),
+        resolve: async (_, _args, { loaders }, info) => {
+          const parsedInfo = parseResolveInfo(info);
+          const isUserSubscribedToNeeded = Object.keys(
+            parsedInfo?.fieldsByTypeName.user as Object,
+          ).includes('userSubscribedTo');
+          const isSubscribedToUserNeeded = Object.keys(
+            parsedInfo?.fieldsByTypeName.user as Object,
+          ).includes('subscribedToUser');
+
+          const users = await prisma.user.findMany({
+            include: {
+              subscribedToUser: isSubscribedToUserNeeded,
+              userSubscribedTo: isUserSubscribedToNeeded,
+            },
+          });
+
+          users.forEach((user) => {
+            if (isUserSubscribedToNeeded) {
+              const authors = user.userSubscribedTo.map((author) => author.subscriberId);
+              loaders.userSubscribedToLoader.prime(
+                user.id,
+                users.filter((user) => authors.includes(user.id)),
+              );
+            }
+
+            if (isSubscribedToUserNeeded) {
+              const subscribers = user.subscribedToUser.map(
+                (subscriber) => subscriber.authorId,
+              );
+              loaders.subscribedToUserLoader.prime(
+                user.id,
+                users.filter((user) => subscribers.includes(user.id)),
+              );
+            }
+          });
+
+          return users;
+        },
       },
       user: {
         type: User,
@@ -45,7 +83,7 @@ const createRootQuery = (prisma) => {
           }),
       },
       posts: {
-        type: Posts,
+        type: new GraphQLNonNull(Posts),
         resolve: async () => prisma.post.findMany(),
       },
       post: {
@@ -62,7 +100,7 @@ const createRootQuery = (prisma) => {
         },
       },
       profiles: {
-        type: ProfileList,
+        type: new GraphQLNonNull(ProfileList),
         resolve: async () => prisma.profile.findMany(),
       },
       profile: {
@@ -89,7 +127,7 @@ const createMutations = (prisma) => {
     name: 'RootMutation',
     fields: {
       createUser: {
-        type: User,
+        type: new GraphQLNonNull(User),
         args: {
           dto: { type: new GraphQLNonNull(CreateUserInput) },
         },
@@ -103,7 +141,7 @@ const createMutations = (prisma) => {
         },
       },
       createPost: {
-        type: Post,
+        type: new GraphQLNonNull(Post),
         args: {
           dto: { type: new GraphQLNonNull(CreatePostInput) },
         },
@@ -118,7 +156,7 @@ const createMutations = (prisma) => {
         },
       },
       createProfile: {
-        type: Profile,
+        type: new GraphQLNonNull(Profile),
         args: {
           dto: { type: new GraphQLNonNull(CreateProfileInput) },
         },
@@ -134,7 +172,7 @@ const createMutations = (prisma) => {
         },
       },
       changeUser: {
-        type: User,
+        type: new GraphQLNonNull(User),
         args: {
           id: { type: new GraphQLNonNull(UUIDType) },
           dto: { type: new GraphQLNonNull(ChangeUserInput) },
@@ -152,7 +190,7 @@ const createMutations = (prisma) => {
         },
       },
       changePost: {
-        type: Post,
+        type: new GraphQLNonNull(Post),
         args: {
           id: { type: new GraphQLNonNull(UUIDType) },
           dto: { type: new GraphQLNonNull(ChangePostInput) },
@@ -170,7 +208,7 @@ const createMutations = (prisma) => {
         },
       },
       changeProfile: {
-        type: Profile,
+        type: new GraphQLNonNull(Profile),
         args: {
           id: { type: new GraphQLNonNull(UUIDType) },
           dto: { type: new GraphQLNonNull(ChangeProfileInput) },
@@ -189,7 +227,7 @@ const createMutations = (prisma) => {
         },
       },
       deleteUser: {
-        type: GraphQLString,
+        type: new GraphQLNonNull(GraphQLString),
         args: {
           id: { type: new GraphQLNonNull(UUIDType) },
         },
@@ -203,7 +241,7 @@ const createMutations = (prisma) => {
         },
       },
       deletePost: {
-        type: GraphQLString,
+        type: new GraphQLNonNull(GraphQLString),
         args: {
           id: { type: new GraphQLNonNull(UUIDType) },
         },
@@ -217,7 +255,7 @@ const createMutations = (prisma) => {
         },
       },
       deleteProfile: {
-        type: GraphQLString,
+        type: new GraphQLNonNull(GraphQLString),
         args: {
           id: { type: new GraphQLNonNull(UUIDType) },
         },
@@ -231,7 +269,7 @@ const createMutations = (prisma) => {
         },
       },
       subscribeTo: {
-        type: GraphQLString,
+        type: new GraphQLNonNull(GraphQLString),
         args: {
           userId: { type: new GraphQLNonNull(UUIDType) },
           authorId: { type: new GraphQLNonNull(UUIDType) },
@@ -247,7 +285,7 @@ const createMutations = (prisma) => {
         },
       },
       unsubscribeFrom: {
-        type: GraphQLString,
+        type: new GraphQLNonNull(GraphQLString),
         args: {
           userId: { type: new GraphQLNonNull(UUIDType) },
           authorId: { type: new GraphQLNonNull(UUIDType) },
